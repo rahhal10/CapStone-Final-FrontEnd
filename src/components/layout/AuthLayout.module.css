@@ -1,0 +1,211 @@
+/* ================================================================
+   AUTH LAYOUT — Split-screen, full-viewport
+   ================================================================ */
+.page {
+  display: flex;
+  min-height: 100svh;
+  background-color: var(--bg-base);
+}
+
+/* ================================================================
+   LEFT PANEL
+   ================================================================ */
+.leftPanel {
+  position: relative;
+  width: 48%;
+  flex-shrink: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+}
+
+.bgImage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.55;
+}
+
+.bgOverlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    160deg,
+    rgba(15, 23, 42, 0.3) 0%,
+    rgba(3, 20, 39, 0.75) 60%,
+    rgba(3, 20, 39, 0.97) 100%
+  );
+}
+
+.leftContent {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  padding: var(--space-lg) var(--space-lg) var(--space-xl);
+  width: 100%;
+}
+
+/* ---- Logo ---- */
+.logoWrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  width: fit-content;
+}
+
+.logoImg {
+  height: 28px;
+  width: auto;
+  object-fit: contain;
+}
+
+.logoText {
+  font-family: var(--font-headline);
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: var(--text-white);
+  transition: color var(--transition-base);
+}
+
+.logoWrap:hover .logoText {
+  color: var(--color-tertiary);
+}
+
+/* ---- Brand Block ---- */
+.brandBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.brandEyebrow {
+  font-family: var(--font-body);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-secondary);
+}
+
+.brandHeadline {
+  font-family: var(--font-headline);
+  font-size: clamp(1.75rem, 2.5vw, 2.5rem);
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--text-white);
+  font-style: normal;
+}
+
+.brandAccent {
+  color: var(--color-secondary);
+  font-style: italic;
+}
+
+/* ---- Feature List ---- */
+.featureList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.featureItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.featureIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background-color: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  color: var(--color-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.featureLabel {
+  font-family: var(--font-headline);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-white);
+  margin-bottom: 2px;
+}
+
+.featureDesc {
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* ================================================================
+   RIGHT PANEL
+   ================================================================ */
+.rightPanel {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xl) var(--space-md);
+}
+
+.formWrapper {
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.logoWrapMobile {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  margin-bottom: var(--space-xs);
+}
+
+.formHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.formHeading {
+  font-family: var(--font-headline);
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 700;
+  color: var(--text-white);
+  letter-spacing: -0.02em;
+}
+
+.formSubheading {
+  font-family: var(--font-body);
+  font-size: 0.9375rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* ================================================================
+   RESPONSIVE
+   ================================================================ */
+@media (max-width: 900px) {
+  .page { flex-direction: column; }
+  .leftPanel { display: none; }
+  .logoWrapMobile { display: flex; }
+  .rightPanel {
+    padding: var(--space-lg) var(--space-md);
+    align-items: flex-start;
+  }
+}

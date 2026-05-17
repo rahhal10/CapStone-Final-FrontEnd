@@ -1,0 +1,143 @@
+/* ── Backdrop ──────────────────────────────────────────────── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(5, 8, 14, 0.7);
+  backdrop-filter: blur(8px);
+  animation: fadeIn 0.2s ease;
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── Card ──────────────────────────────────────────────────── */
+.modal {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  background: linear-gradient(145deg, #0f1c2e 0%, #0a1120 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  padding: 44px 36px 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(249, 115, 22, 0.06);
+  animation: slideUp 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(24px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0)    scale(1);    }
+}
+
+/* ── Close button ──────────────────────────────────────────── */
+.closeBtn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  color: var(--text-subtle);
+  cursor: pointer;
+  transition: background var(--transition-base), color var(--transition-base);
+}
+.closeBtn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-white);
+}
+
+/* ── Icon ──────────────────────────────────────────────────── */
+.iconWrap {
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.18), rgba(249, 115, 22, 0.06));
+  border: 1px solid rgba(249, 115, 22, 0.28);
+  color: var(--color-secondary);
+  margin-bottom: 6px;
+}
+
+/* ── Text ──────────────────────────────────────────────────── */
+.heading {
+  font-family: var(--font-heading);
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: var(--text-white);
+  margin: 0;
+  text-align: center;
+}
+
+.sub {
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  color: var(--text-subtle);
+  text-align: center;
+  line-height: 1.65;
+  margin: 0 0 8px;
+  max-width: 300px;
+}
+
+/* ── Buttons ───────────────────────────────────────────────── */
+.buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.btnPrimary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 50px;
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #fff;
+  background-color: var(--color-secondary);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  box-shadow: 0 0 28px rgba(249, 115, 22, 0.25);
+  transition: filter var(--transition-base), transform var(--transition-base);
+}
+.btnPrimary:hover  { filter: brightness(1.12); transform: translateY(-1px); }
+.btnPrimary:active { transform: scale(0.98); }
+
+.btnSecondary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 50px;
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-white);
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  transition: background var(--transition-base), border-color var(--transition-base), transform var(--transition-base);
+}
+.btnSecondary:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.22);
+  transform: translateY(-1px);
+}
