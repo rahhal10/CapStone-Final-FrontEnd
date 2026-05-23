@@ -112,6 +112,29 @@
   }
 }
 
+/* ── History link ──────────────────────────────────────────── */
+.historyLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  text-decoration: none;
+  transition: color var(--transition-base), border-color var(--transition-base), background var(--transition-base);
+}
+
+.historyLink:hover {
+  color: var(--color-tertiary);
+  border-color: rgba(56, 189, 248, 0.35);
+  background: rgba(56, 189, 248, 0.05);
+}
+
 /* ── User chip (logged-in state) ───────────────────────────── */
 .userChipWrap {
   position: relative;

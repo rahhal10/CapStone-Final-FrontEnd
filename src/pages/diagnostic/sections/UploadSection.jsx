@@ -13,40 +13,131 @@ const STEPS = [
   { id: 5, label: 'Compiling Report...'             },
 ];
 
-/* How long (ms) each step stays "active" before the next starts.
-   Last step stays active until the real response arrives.          */
-const STEP_DURATIONS = [1800, 2200, 2400, 0, 0]; // last two wait for API
-
-const STATUS_LABELS = { done: 'SUCCESS', active: 'ACTIVE', pending: 'PENDING' };
+const STEP_DURATIONS = [1800, 2200, 2400, 0, 0];
+const STATUS_LABELS  = { done: 'SUCCESS', active: 'ACTIVE', pending: 'PENDING' };
 
 /* ── Component ────────────────────────────────────────────────────────────── */
 export default function UploadSection() {
-  const { token }  = useAuth();
-  const navigate   = useNavigate();
+  const { token } = useAuth();
+  const navigate  = useNavigate();
 
-  /* Upload state */
+  /* ── Upload state ────────────────────────────────────────────────────── */
   const [isDragging, setIsDragging] = useState(false);
-  const [file, setFile]             = useState(null);       // raw File object
-  const [previewUrl, setPreviewUrl] = useState(null);       // object URL for preview
-  const fileInputRef                = useRef(null);
+  const [file,       setFile]       = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const fileInputRef = useRef(null);
 
-  /* Analysis state */
-  const [phase, setPhase]           = useState('idle');     // idle | running | done | error
-  const [progress, setProgress]     = useState(0);
-  const [stepStatuses, setStepStatuses] = useState(
-    STEPS.map(() => 'pending')
-  );
-  const [scanLabel, setScanLabel]   = useState('AWAITING INPUT');
-  const [result, setResult]         = useState(null);       // API response
-  const [errorMsg, setErrorMsg]     = useState('');
+  /* ── Analysis state ──────────────────────────────────────────────────── */
+  const [phase,       setPhase]       = useState('idle');
+  const [progress,    setProgress]    = useState(0);
+  const [stepStatuses, setStepStatuses] = useState(STEPS.map(() => 'pending'));
+  const [scanLabel,   setScanLabel]   = useState('AWAITING INPUT');
+  const [result,      setResult]      = useState(null);
+  const [errorMsg,    setErrorMsg]    = useState('');
 
   const progressRef  = useRef(null);
   const stepTimerRef = useRef([]);
 
-  /* ── Cleanup object URLs ─────────────────────────────────────────────── */
+  /* ── Camera modal state ──────────────────────────────────────────────── */
+  const [cameraOpen,  setCameraOpen]  = useState(false);
+  const [cameraError, setCameraError] = useState('');
+  const [mirrored,    setMirrored]    = useState(false); // front cam = mirror
+  const videoRef  = useRef(null);
+  const canvasRef = useRef(null);
+  const streamRef = useRef(null);
+
+  /* ── Object URL cleanup ──────────────────────────────────────────────── */
   useEffect(() => () => {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
   }, [previewUrl]);
+
+  /* ── Camera stream cleanup on unmount ────────────────────────────────── */
+  useEffect(() => () => stopStream(), []);
+
+  function stopStream() {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    }
+  }
+
+  /* ── Open camera (getUserMedia) ──────────────────────────────────────── */
+  async function openCamera() {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraError('Your browser does not support camera access. Please use a modern browser.');
+      setCameraOpen(true);
+      return;
+    }
+    setCameraError('');
+    setCameraOpen(true);
+
+    try {
+      /* Prefer rear camera on mobile; fall back to any camera */
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: 'environment' },
+          width:  { ideal: 1920 },
+          height: { ideal: 1080 },
+        },
+        audio: false,
+      });
+
+      streamRef.current = stream;
+
+      /* Detect if front camera ended up being used (mirror it) */
+      const track    = stream.getVideoTracks()[0];
+      const settings = track.getSettings?.() ?? {};
+      setMirrored(settings.facingMode === 'user');
+
+      /* Attach stream to <video> once the modal has rendered */
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      }, 50);
+
+    } catch (err) {
+      const msg =
+        err.name === 'NotAllowedError'  ? 'Camera permission denied. Please allow camera access and try again.' :
+        err.name === 'NotFoundError'    ? 'No camera found on this device.' :
+        err.name === 'NotReadableError' ? 'Camera is in use by another app.' :
+        `Camera error: ${err.message}`;
+      setCameraError(msg);
+    }
+  }
+
+  function closeCamera() {
+    stopStream();
+    setCameraOpen(false);
+    setCameraError('');
+    setMirrored(false);
+  }
+
+  /* ── Snap a frame from the video and turn it into a File ─────────────── */
+  function capturePhoto() {
+    const video  = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas || !video.videoWidth) return;
+
+    canvas.width  = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    const ctx = canvas.getContext('2d');
+
+    /* If front cam is mirrored, un-mirror before saving */
+    if (mirrored) {
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+    }
+    ctx.drawImage(video, 0, 0);
+
+    canvas.toBlob(blob => {
+      if (!blob) return;
+      const f = new File([blob], `camera-${Date.now()}.jpg`, { type: 'image/jpeg' });
+      closeCamera();
+      pickFile(f);          // same flow as file-picker
+    }, 'image/jpeg', 0.92);
+  }
 
   /* ── Drag-and-drop handlers ──────────────────────────────────────────── */
   const handleDragOver  = useCallback((e) => { e.preventDefault(); setIsDragging(true); }, []);
@@ -68,9 +159,10 @@ export default function UploadSection() {
   function handleFileChange(e) {
     const f = e.target.files?.[0];
     if (f) pickFile(f);
+    e.target.value = '';
   }
 
-  /* ── Reset analysis state back to idle ──────────────────────────────── */
+  /* ── Reset analysis ──────────────────────────────────────────────────── */
   function resetAnalysis() {
     setPhase('idle');
     setProgress(0);
@@ -83,17 +175,15 @@ export default function UploadSection() {
     stepTimerRef.current = [];
   }
 
-  /* ── Mark a step's status ────────────────────────────────────────────── */
   function setStep(idx, status) {
     setStepStatuses(prev => prev.map((s, i) => (i === idx ? status : s)));
   }
 
-  /* ── Animate progress bar from current value toward `target` ─────────── */
   function crawlProgressTo(target, durationMs) {
     clearInterval(progressRef.current);
-    const start     = Date.now();
-    let   fromValue = 0;
-    setProgress(p => { fromValue = p; return p; }); // read current
+    const start = Date.now();
+    let fromValue = 0;
+    setProgress(p => { fromValue = p; return p; });
     progressRef.current = setInterval(() => {
       const elapsed = Date.now() - start;
       const frac    = Math.min(elapsed / durationMs, 1);
@@ -111,15 +201,11 @@ export default function UploadSection() {
     setPhase('running');
     setScanLabel('UPLOADING IMAGE...');
 
-    /* ── Step 0: uploading (active immediately) ── */
     setStep(0, 'active');
     crawlProgressTo(18, 2000);
 
-    /* ── Steps 1-3 timed locally ── */
-    let accumulated = STEP_DURATIONS[0]; // after step 0 finishes
-
+    let accumulated = STEP_DURATIONS[0];
     [1, 2, 3].forEach((si) => {
-      /* mark previous done, this one active */
       const t1 = setTimeout(() => {
         setStep(si - 1, 'done');
         setStep(si, 'active');
@@ -127,16 +213,13 @@ export default function UploadSection() {
         setScanLabel(labels[si - 1]);
         crawlProgressTo(20 + si * 18, STEP_DURATIONS[si]);
       }, accumulated);
-
       accumulated += STEP_DURATIONS[si];
       stepTimerRef.current.push(t1);
     });
 
-    /* ── Fire the real request ── */
     try {
       const data = await apiDetect(file, token);
 
-      /* ── Success: finish remaining steps, jump to 100% ── */
       clearInterval(progressRef.current);
       stepTimerRef.current.forEach(clearTimeout);
       stepTimerRef.current = [];
@@ -155,7 +238,6 @@ export default function UploadSection() {
       }, 800);
 
     } catch (err) {
-      /* ── Error: stop everything, show banner ── */
       clearInterval(progressRef.current);
       stepTimerRef.current.forEach(clearTimeout);
       stepTimerRef.current = [];
@@ -164,12 +246,10 @@ export default function UploadSection() {
     }
   }
 
-  /* ── Navigate to results page ─────────────────────────────────────────── */
   function goToResults() {
     navigate('/manual-entry', { state: result });
   }
 
-  /* ── Derived UI values ────────────────────────────────────────────────── */
   const isRunning = phase === 'running';
   const isDone    = phase === 'done';
   const isError   = phase === 'error';
@@ -208,7 +288,7 @@ export default function UploadSection() {
             <div
               className={[
                 styles.dropzone,
-                isDragging  ? styles.dropzoneDragging : '',
+                isDragging ? styles.dropzoneDragging : '',
                 file        ? styles.dropzoneActive   : '',
                 isRunning   ? styles.dropzoneLocked   : '',
               ].join(' ')}
@@ -221,6 +301,7 @@ export default function UploadSection() {
               onKeyDown={(e) => !isRunning && e.key === 'Enter' && fileInputRef.current?.click()}
               onClick={() => !isRunning && !file && fileInputRef.current?.click()}
             >
+              {/* Hidden file-picker input */}
               <input
                 ref={fileInputRef}
                 id="file-upload"
@@ -232,7 +313,7 @@ export default function UploadSection() {
                 disabled={isRunning}
               />
 
-              {/* If image selected — show thumbnail inside dropzone */}
+              {/* If image selected — show thumbnail */}
               {previewUrl ? (
                 <div className={styles.thumbWrap}>
                   <img src={previewUrl} alt="Selected vehicle" className={styles.thumb} />
@@ -242,13 +323,22 @@ export default function UploadSection() {
                       {(file.size / (1024 * 1024)).toFixed(2)} MB
                     </p>
                     {!isRunning && !isDone && (
-                      <button
-                        type="button"
-                        className={styles.changeBtn}
-                        onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
-                      >
-                        Change File
-                      </button>
+                      <div className={styles.thumbBtnRow}>
+                        <button
+                          type="button"
+                          className={styles.changeBtn}
+                          onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
+                        >
+                          <IconFolder /> Change File
+                        </button>
+                        <button
+                          type="button"
+                          className={`${styles.changeBtn} ${styles.changeBtnCamera}`}
+                          onClick={(e) => { e.stopPropagation(); openCamera(); }}
+                        >
+                          <IconCamera /> Retake Photo
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -257,18 +347,28 @@ export default function UploadSection() {
                   <div className={styles.uploadIconWrap}><IconCloudUpload /></div>
                   <p className={styles.dropzoneTitle}>Drop vehicle imagery here</p>
                   <p className={styles.dropzoneSub}>Support for JPEG, PNG, HEIC (Max 25 MB)</p>
-                  <button
-                    type="button"
-                    className={styles.selectBtn}
-                    onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
-                  >
-                    Select Files
-                  </button>
+                  <div className={styles.dropzoneBtnRow}>
+                    <button
+                      type="button"
+                      className={styles.selectBtn}
+                      onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
+                    >
+                      <IconFolder /> Select File
+                    </button>
+                    <span className={styles.dropzoneDivider}>or</span>
+                    <button
+                      type="button"
+                      className={`${styles.selectBtn} ${styles.cameraBtn}`}
+                      onClick={(e) => { e.stopPropagation(); openCamera(); }}
+                    >
+                      <IconCamera /> Take Photo
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
 
-            {/* ── Start Analysis / View Results button ── */}
+            {/* ── Start / View Results buttons ── */}
             {!isDone && (
               <button
                 type="button"
@@ -317,7 +417,6 @@ export default function UploadSection() {
           <div className={styles.rightCol}>
             <div className={styles.analysisPanel}>
 
-              {/* Panel header */}
               <div className={styles.analysisPanelHeader}>
                 <span className={styles.analysisPanelTitle}>LIVE_ANALYSIS_STREAM</span>
                 <div className={styles.reconstructingBadge}>
@@ -326,27 +425,22 @@ export default function UploadSection() {
                 </div>
               </div>
 
-              {/* ── Scan / preview window ── */}
               <div className={styles.scanPreview}>
                 {previewUrl ? (
-                  /* Real uploaded image fills the window */
                   <img
                     src={previewUrl}
                     alt="Vehicle under analysis"
                     className={styles.scanImage}
                   />
                 ) : (
-                  /* Idle placeholder */
                   <div className={styles.scanOverlay}>
                     <div className={styles.scanBox} />
                     <p className={styles.scanLabel}>AWAITING INPUT</p>
                   </div>
                 )}
 
-                {/* Animated scan beam — only while running */}
                 {isRunning && <div className={styles.scanBeam} />}
 
-                {/* Overlay label on top of image */}
                 {(isRunning || isDone) && previewUrl && (
                   <div className={styles.scanImageLabel}>
                     <span className={[
@@ -359,7 +453,6 @@ export default function UploadSection() {
                 )}
               </div>
 
-              {/* ── Progress bar ── */}
               <div className={styles.progressRow}>
                 <span className={styles.progressLabel}>
                   {isDone
@@ -385,7 +478,6 @@ export default function UploadSection() {
                 />
               </div>
 
-              {/* ── Analysis steps ── */}
               <ul className={styles.steps} role="list">
                 {STEPS.map((step, i) => {
                   const status = stepStatuses[i];
@@ -416,6 +508,80 @@ export default function UploadSection() {
 
         </div>
       </div>
+
+      {/* ═══════════════════════════════════════════════
+          CAMERA MODAL (getUserMedia live feed)
+          ═══════════════════════════════════════════════ */}
+      {cameraOpen && (
+        <div className={styles.cameraModal} role="dialog" aria-modal="true" aria-label="Camera capture">
+
+          <div className={styles.cameraBox}>
+
+            {/* Header */}
+            <div className={styles.cameraHeader}>
+              <div className={styles.cameraHeaderLeft}>
+                <span className={styles.cameraDot} />
+                <span className={styles.cameraTitle}>LIVE CAMERA FEED</span>
+              </div>
+              <button
+                type="button"
+                className={styles.cameraClose}
+                onClick={closeCamera}
+                aria-label="Close camera"
+              >
+                <IconX />
+              </button>
+            </div>
+
+            {/* Video / Error */}
+            {cameraError ? (
+              <div className={styles.cameraErrorBox}>
+                <IconWarning />
+                <p className={styles.cameraErrorMsg}>{cameraError}</p>
+                <button type="button" className={styles.cameraRetryBtn} onClick={closeCamera}>
+                  Close
+                </button>
+              </div>
+            ) : (
+              <div className={styles.cameraViewport}>
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className={`${styles.cameraVideo} ${mirrored ? styles.cameraVideoMirror : ''}`}
+                />
+                {/* Scan frame overlay */}
+                <div className={styles.cameraFrame}>
+                  <span className={`${styles.cameraCorner} ${styles.cameraCornerTL}`} />
+                  <span className={`${styles.cameraCorner} ${styles.cameraCornerTR}`} />
+                  <span className={`${styles.cameraCorner} ${styles.cameraCornerBL}`} />
+                  <span className={`${styles.cameraCorner} ${styles.cameraCornerBR}`} />
+                </div>
+                <p className={styles.cameraHint}>Position the vehicle in frame, then capture</p>
+              </div>
+            )}
+
+            {/* Hidden canvas used to extract the frame */}
+            <canvas ref={canvasRef} style={{ display: 'none' }} />
+
+            {/* Actions */}
+            {!cameraError && (
+              <div className={styles.cameraActions}>
+                <button type="button" className={styles.cameraCancelBtn} onClick={closeCamera}>
+                  Cancel
+                </button>
+                <button type="button" className={styles.cameraCaptureBtn} onClick={capturePhoto}>
+                  <span className={styles.cameraShutter} />
+                  Capture
+                </button>
+              </div>
+            )}
+
+          </div>
+        </div>
+      )}
+
     </section>
   );
 }
@@ -463,6 +629,32 @@ function IconWarning() {
       <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
       <line x1="12" y1="9" x2="12" y2="13"/>
       <line x1="12" y1="17" x2="12.01" y2="17"/>
+    </svg>
+  );
+}
+function IconCamera() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+      <circle cx="12" cy="13" r="4"/>
+    </svg>
+  );
+}
+function IconFolder() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+    </svg>
+  );
+}
+function IconX() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <line x1="18" y1="6" x2="6" y2="18"/>
+      <line x1="6" y1="6" x2="18" y2="18"/>
     </svg>
   );
 }

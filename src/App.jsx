@@ -6,6 +6,7 @@ import LoginPage          from './pages/auth/LoginPage';
 import SignUpPage         from './pages/auth/SignUpPage';
 import ManualEntryPage    from './pages/manualEntry/ManualEntryPage';
 import ResultsPage        from './pages/results/ResultsPage';
+import HistoryPage        from './pages/history/HistoryPage';
 import './index.css';
 
 export default function App() {
@@ -15,6 +16,7 @@ export default function App() {
         <Routes>
           <Route path="/"             element={<LandingPage />}     />
           <Route path="/diagnostic"   element={<DiagnosticPage />}  />
+          <Route path="/history"      element={<HistoryPage />}     />
           <Route path="/manual-entry" element={<ManualEntryPage />} />
           <Route path="/results"      element={<ResultsPage />}     />
           <Route path="/login"        element={<LoginPage />}       />

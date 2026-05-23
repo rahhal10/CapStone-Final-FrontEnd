@@ -158,9 +158,39 @@
   border: 1px solid var(--color-tertiary);
   border-radius: var(--radius-sm);
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   transition: background-color var(--transition-base), color var(--transition-base);
 }
 .selectBtn:hover { background-color: rgba(56, 189, 248, 0.1); }
+
+/* Button row inside empty dropzone */
+.dropzoneBtnRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: var(--space-xs);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.dropzoneDivider {
+  font-family: var(--font-body);
+  font-size: 0.7rem;
+  color: var(--text-subtle);
+  flex-shrink: 0;
+}
+
+/* Camera variant of selectBtn — orange-tinted */
+.cameraBtn {
+  color: var(--color-secondary);
+  border-color: var(--color-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.cameraBtn:hover { background-color: rgba(249, 115, 22, 0.1) !important; }
 
 /* ---- Thumbnail inside dropzone ---- */
 .thumbWrap {
@@ -204,8 +234,9 @@
 }
 
 .changeBtn {
-  align-self: flex-start;
-  margin-top: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   padding: 5px 14px;
   font-family: var(--font-body);
   font-size: 0.7rem;
@@ -220,6 +251,25 @@
   transition: background var(--transition-base);
 }
 .changeBtn:hover { background: rgba(56, 189, 248, 0.2); }
+
+/* Pair of change/retake buttons shown over thumbnail */
+.thumbBtnRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+/* Camera retake variant */
+.changeBtnCamera {
+  color: var(--color-secondary);
+  border-color: rgba(249, 115, 22, 0.3);
+  background: rgba(249, 115, 22, 0.08);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.changeBtnCamera:hover { background: rgba(249, 115, 22, 0.18); }
 
 /* ---- Start Analysis button ---- */
 .startBtn {
@@ -616,4 +666,264 @@
 /* ---- Responsive ---- */
 @media (max-width: 900px) {
   .columns { grid-template-columns: 1fr; }
+}
+
+/* ================================================================
+   CAMERA MODAL
+   ================================================================ */
+.cameraModal {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  background: rgba(3, 20, 39, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-md);
+  animation: modalFadeIn 0.2s ease;
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.cameraBox {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 640px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+  box-shadow: 0 40px 100px rgba(0, 0, 0, 0.7);
+  animation: boxSlideUp 0.25s ease;
+}
+
+@keyframes boxSlideUp {
+  from { transform: translateY(24px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+/* ── Camera header ── */
+.cameraHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.cameraHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cameraDot {
+  display: block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #f87171;
+  box-shadow: 0 0 8px rgba(248, 113, 113, 0.7);
+  animation: blink 1s ease-in-out infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+
+.cameraTitle {
+  font-family: var(--font-body);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+}
+
+.cameraClose {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background var(--transition-base), color var(--transition-base);
+}
+.cameraClose:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #f87171;
+}
+
+/* ── Camera viewport ── */
+.cameraViewport {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  overflow: hidden;
+}
+
+.cameraVideo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.cameraVideoMirror {
+  transform: scaleX(-1);
+}
+
+/* ── Animated corner viewfinder brackets ── */
+.cameraFrame {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.cameraCorner {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  border-color: var(--color-secondary);
+  border-style: solid;
+}
+
+.cameraCornerTL { top: 14px;    left: 14px;    border-width: 2px 0 0 2px; }
+.cameraCornerTR { top: 14px;    right: 14px;   border-width: 2px 2px 0 0; }
+.cameraCornerBL { bottom: 14px; left: 14px;    border-width: 0 0 2px 2px; }
+.cameraCornerBR { bottom: 14px; right: 14px;   border-width: 0 2px 2px 0; }
+
+.cameraHint {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-body);
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.55);
+  white-space: nowrap;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+}
+
+/* ── Error state ── */
+.cameraErrorBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: var(--space-xl) var(--space-md);
+  min-height: 200px;
+  color: #f87171;
+  text-align: center;
+}
+
+.cameraErrorMsg {
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  max-width: 340px;
+  line-height: 1.55;
+}
+
+.cameraRetryBtn {
+  padding: 8px 24px;
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--transition-base);
+}
+.cameraRetryBtn:hover { background: rgba(255,255,255,0.05); }
+
+/* ── Action bar ── */
+.cameraActions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.cameraCancelBtn {
+  padding: 10px 24px;
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background var(--transition-base), color var(--transition-base);
+}
+.cameraCancelBtn:hover {
+  background: rgba(255,255,255,0.05);
+  color: var(--text-white);
+}
+
+/* Main capture button — pulsing orange shutter */
+.cameraCaptureBtn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 36px;
+  font-family: var(--font-headline);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #fff;
+  background: linear-gradient(135deg, var(--color-secondary), #ea580c);
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  box-shadow: 0 0 28px rgba(249, 115, 22, 0.4);
+  transition: filter var(--transition-base), transform var(--transition-base);
+}
+.cameraCaptureBtn:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+.cameraCaptureBtn:active { transform: scale(0.97); }
+
+/* Shutter icon circle */
+.cameraShutter {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.6);
+  position: relative;
+  flex-shrink: 0;
+}
+.cameraShutter::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.85);
 }

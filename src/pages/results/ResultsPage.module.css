@@ -46,7 +46,6 @@
   line-height: 1;
 }
 
-/* ---- Car chip ---- */
 .carChip {
   background-color: var(--bg-card-high);
   border: 1px solid var(--border-subtle);
@@ -82,10 +81,10 @@
   padding: 0 var(--space-md) var(--space-xl);
 }
 
+/* Outer shell — no fixed aspect-ratio so imgWrap can dictate height */
 .canvas {
   position: relative;
   width: 100%;
-  aspect-ratio: 21 / 9;
   background-color: var(--bg-card);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
@@ -93,34 +92,35 @@
   box-shadow: 0 32px 80px rgba(0, 0, 0, 0.6);
 }
 
-@media (max-width: 768px) {
-  .canvas {
-    aspect-ratio: 16 / 9;
-  }
-}
-
-/* ---- Canvas background image ---- */
-.canvasBg {
-  position: absolute;
-  inset: 0;
+/* ── Image wrapper: height follows the image's natural AR ── */
+.imgWrap {
+  position: relative;
   width: 100%;
-  height: 100%;
-  object-fit: cover;
-  opacity: 0.75;
+  line-height: 0; /* collapse gap below img */
 }
 
+/* The actual <img> — no object-fit so 100% of image is visible */
+.scanImg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* ── Dark gradient for HUD readability ── */
 .canvasOverlay {
   position: absolute;
   inset: 0;
   background: linear-gradient(
     to top,
-    rgba(3, 20, 39, 0.85) 0%,
-    rgba(3, 20, 39, 0.2) 60%,
+    rgba(3, 20, 39, 0.80) 0%,
+    rgba(3, 20, 39, 0.15) 55%,
     transparent 100%
   );
+  pointer-events: none;
+  z-index: 1;
 }
 
-/* ---- Laser scan line ---- */
+/* ── Laser scan animation ── */
 .laserLine {
   position: absolute;
   left: 0;
@@ -133,8 +133,9 @@
     transparent 100%
   );
   box-shadow: 0 0 14px rgba(56, 189, 248, 0.7), 0 0 30px rgba(56, 189, 248, 0.3);
-  z-index: 5;
+  z-index: 2;
   animation: laserScan 2.8s linear infinite;
+  pointer-events: none;
 }
 
 @keyframes laserScan {
@@ -142,79 +143,28 @@
   100% { top: 100%; }
 }
 
-/* ================================================================
-   DAMAGE HOTSPOTS
-   ================================================================ */
-.hotspot {
+/* ── Placeholder (no image) — keeps a fixed 21:9 ratio ── */
+.canvasPlaceholder {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 21 / 9;
+}
+
+.canvasPlaceholderInner {
   position: absolute;
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-  background-color: rgba(249, 115, 22, 0.25);
-  border: 2px solid var(--color-secondary);
+  inset: 0;
+  z-index: 3;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  z-index: 10;
-  color: #fff;
-  animation: hotspotPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-.hotspot--sm { width: 32px; height: 32px; }
-.hotspot--lg { width: 42px; height: 42px; }
-
-@keyframes hotspotPulse {
-  0%, 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-  50%       { opacity: 0.7; transform: translate(-50%, -50%) scale(1.15); }
-}
-
-/* Outer ring */
-.hotspotRing {
-  position: absolute;
-  inset: -6px;
-  border-radius: 50%;
-  border: 1px solid rgba(249, 115, 22, 0.35);
-  animation: ringExpand 2s ease-in-out infinite;
-}
-
-@keyframes ringExpand {
-  0%, 100% { opacity: 0.6; transform: scale(1); }
-  50%       { opacity: 0; transform: scale(1.5); }
-}
-
-/* Tooltip */
-.hotspotTooltip {
-  position: absolute;
-  bottom: calc(100% + 10px);
-  left: 50%;
-  transform: translateX(-50%);
-  background-color: var(--color-secondary);
-  color: #fff;
+  gap: 12px;
+  color: var(--text-subtle);
   font-family: var(--font-body);
-  font-size: 0.6rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 4px 10px;
-  border-radius: var(--radius-sm);
-  white-space: nowrap;
-  pointer-events: none;
-  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.4);
+  font-size: 0.85rem;
 }
 
-.hotspotTooltip::after {
-  content: '';
-  position: absolute;
-  top: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  border: 5px solid transparent;
-  border-top-color: var(--color-secondary);
-}
-
-/* ================================================================
-   HUD PANEL
-   ================================================================ */
+/* ── HUD Panel ── */
 .hudPanel {
   position: absolute;
   bottom: var(--space-md);
@@ -225,7 +175,7 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--radius-lg);
   padding: var(--space-sm);
-  max-width: 340px;
+  max-width: 400px;
   z-index: 10;
 }
 
@@ -247,12 +197,77 @@
 }
 
 /* ================================================================
-   REPLACEMENT RECOMMENDATIONS
+   BOUNDING BOXES
+   ================================================================ */
+.bbox {
+  position: absolute;
+  border: 2px solid var(--color-secondary);          /* orange */
+  background-color: rgba(249, 115, 22, 0.10);
+  box-shadow:
+    inset 0 0 0 1px rgba(249, 115, 22, 0.20),
+    0 0 12px rgba(249, 115, 22, 0.25);
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: flex-start;
+  pointer-events: none;
+  animation: bboxFadeIn 0.4s ease both;
+}
+
+@keyframes bboxFadeIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* Label bar at top of box */
+.bboxLabel {
+  display: inline-block;
+  background-color: var(--color-secondary);
+  color: #fff;
+  font-family: var(--font-body);
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  line-height: 1.4;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Confidence chip — right end of label bar */
+.bboxConf {
+  display: inline-block;
+  background-color: rgba(0, 0, 0, 0.5);
+  color: rgba(255, 255, 255, 0.75);
+  font-family: monospace;
+  font-size: 0.5rem;
+  padding: 2px 5px;
+  line-height: 1.4;
+}
+
+/* Unknown-damage variant — grey/muted instead of orange */
+.bboxUnknown {
+  border-color: var(--text-subtle);
+  background-color: rgba(148, 163, 184, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.15);
+}
+
+.bboxUnknown .bboxLabel {
+  background-color: var(--text-subtle);
+  color: var(--bg-base);
+}
+
+/* ================================================================
+   RECOMMENDATIONS SECTION
    ================================================================ */
 .recsSection {
   background-color: var(--bg-surface);
   border-top: 1px solid var(--border-slate);
-  padding: var(--space-xl) 0;
+  padding: var(--space-xl) 0 calc(var(--space-xl) * 1.5);
 }
 
 .recsContainer {
@@ -264,11 +279,7 @@
   gap: var(--space-lg);
 }
 
-.recsHeader {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
+.recsHeader { display: flex; flex-direction: column; gap: 6px; }
 
 .recsTitle {
   font-size: clamp(1.5rem, 3vw, 2rem);
@@ -283,203 +294,310 @@
   color: var(--text-muted);
 }
 
-/* ================================================================
-   PARTS GRID
-   ================================================================ */
-.partsGrid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--space-md);
-}
+.recsSub strong { color: var(--text-white); }
 
-/* ---- Part column ---- */
-.partCol {
+/* ================================================================
+   STATE BOXES
+   ================================================================ */
+.stateBox {
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: var(--space-xl);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-lg);
+  color: var(--text-subtle);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
 }
 
-/* ---- Category header ---- */
-.catHeader {
+.stateText { color: var(--text-muted); }
+
+.spinner {
+  display: inline-block;
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(56, 189, 248, 0.2);
+  border-top-color: var(--color-tertiary);
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.errorBox {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  background-color: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+  color: #f87171;
+}
+
+.errorTitle {
+  font-family: var(--font-headline);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #f87171;
+  margin-bottom: 4px;
+}
+
+.errorMsg {
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  flex: 1;
+}
+
+.retryBtn {
+  margin-left: auto;
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-tertiary);
+  text-decoration: none;
+  white-space: nowrap;
+  padding: 6px 14px;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: var(--radius-md);
+  transition: background-color var(--transition-base);
+}
+
+.retryBtn:hover { background-color: rgba(56, 189, 248, 0.08); }
+
+/* ================================================================
+   RESULTS TABLE
+   ================================================================ */
+.tableHead {
+  display: grid;
+  grid-template-columns: 1fr repeat(3, 180px);
+  gap: 0 var(--space-sm);
+  padding: 0 var(--space-md);
+  align-items: center;
+}
+
+.thPart {
+  font-family: var(--font-body);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+}
+
+.thPrice {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding-bottom: var(--space-xs);
-  border-bottom: 1px solid;
-}
-
-.catHeader--tertiary { border-color: rgba(56, 189, 248, 0.3); color: var(--color-tertiary); }
-.catHeader--muted    { border-color: var(--border-subtle); color: var(--text-subtle); }
-.catHeader--orange   { border-color: rgba(249, 115, 22, 0.3); color: var(--color-secondary); }
-
-.catIcon { display: flex; align-items: center; }
-
-.catLabel {
+  gap: 6px;
   font-family: var(--font-body);
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
+  justify-content: flex-end;
 }
 
-/* ---- Part card ---- */
-.partCard {
+.thOrig  { color: var(--color-tertiary); }
+.thUsed  { color: #34d399; }
+.thAfter { color: var(--color-secondary); }
+
+.tableBody {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.partRow {
+  display: grid;
+  grid-template-columns: 1fr repeat(3, 180px);
+  gap: 0 var(--space-sm);
+  align-items: center;
   background-color: var(--bg-card-high);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
-  padding: var(--space-sm);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-  transition: border-color var(--transition-slow), transform var(--transition-slow), box-shadow var(--transition-slow);
+  padding: var(--space-sm) var(--space-md);
+  transition: border-color var(--transition-base), transform var(--transition-slow), box-shadow var(--transition-slow);
 }
 
-.partCard:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
-}
-
-.partCard--tertiary:hover { border-color: var(--color-tertiary); box-shadow: 0 12px 32px rgba(56, 189, 248, 0.1); }
-.partCard--muted:hover    { border-color: var(--text-subtle); }
-.partCard--orange:hover   { border-color: var(--color-secondary); box-shadow: 0 12px 32px rgba(249, 115, 22, 0.1); }
-
-/* ---- Part image ---- */
-.partImageWrap {
-  aspect-ratio: 1 / 1;
-  background-color: var(--bg-card-highest);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.partImage {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  opacity: 0.85;
-  transition: opacity var(--transition-base), transform var(--transition-slow);
-}
-
-.partCard:hover .partImage {
-  opacity: 1;
-  transform: scale(1.04);
-}
-
-/* ---- Part meta ---- */
-.partMeta {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
+.partRow:hover {
+  border-color: rgba(56, 189, 248, 0.25);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
 }
 
 .partName {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   font-family: var(--font-headline);
   font-size: 1rem;
   font-weight: 600;
   color: var(--text-white);
 }
 
-.partNo {
+.partIndex {
   font-family: monospace;
-  font-size: 0.65rem;
+  font-size: 0.7rem;
+  font-weight: 700;
   color: var(--text-subtle);
-  letter-spacing: 0.04em;
+  background-color: var(--bg-card-highest);
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  letter-spacing: 0.06em;
+  flex-shrink: 0;
 }
 
-/* ---- Price row ---- */
-.partPriceRow {
+.priceCell {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
   align-items: flex-end;
+  gap: 2px;
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
 }
 
-.priceLabel {
+.priceTier {
   font-family: var(--font-body);
-  font-size: 0.6rem;
+  font-size: 0.55rem;
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--text-subtle);
-  margin-bottom: 2px;
+  display: none;
 }
 
 .priceValue {
   font-family: var(--font-headline);
-  font-size: 1.25rem;
+  font-size: 1.15rem;
   font-weight: 700;
-  color: var(--text-white);
   line-height: 1;
 }
 
-/* ---- Stock badge ---- */
-.stockBadge {
-  font-family: var(--font-body);
-  font-size: 0.6rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 3px 8px;
-  border-radius: var(--radius-sm);
+.priceCellOrig  { background-color: rgba(56, 189, 248, 0.05); }
+.priceCellOrig  .priceTier  { color: var(--color-tertiary); }
+.priceCellOrig  .priceValue { color: var(--color-tertiary); }
+
+.priceCellUsed  { background-color: rgba(52, 211, 153, 0.05); }
+.priceCellUsed  .priceTier  { color: #34d399; }
+.priceCellUsed  .priceValue { color: #34d399; }
+
+.priceCellAfter { background-color: rgba(249, 115, 22, 0.05); }
+.priceCellAfter .priceTier  { color: var(--color-secondary); }
+.priceCellAfter .priceValue { color: var(--color-secondary); }
+
+/* ── Total bar ── */
+.totalBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.08) 0%, transparent 100%);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
 }
 
-.stockBadge--green  { color: #34d399; background-color: rgba(52, 211, 153, 0.12); }
-.stockBadge--blue   { color: var(--color-tertiary); background-color: rgba(56, 189, 248, 0.12); }
-.stockBadge--orange { color: var(--color-secondary); background-color: rgba(249, 115, 22, 0.12); }
+.totalLeft { display: flex; flex-direction: column; gap: 4px; }
 
-/* ---- Buy button ---- */
-.buyBtn {
-  width: 100%;
-  height: 40px;
-  font-family: var(--font-body);
-  font-size: 0.7rem;
+.totalLabel {
+  font-family: var(--font-headline);
+  font-size: 1rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: filter var(--transition-base), transform var(--transition-base), background-color var(--transition-base);
+  color: var(--text-white);
 }
 
-.buyBtn--primary {
+.totalSub {
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  color: var(--text-subtle);
+}
+
+.totalValue {
+  font-family: var(--font-headline);
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-weight: 700;
+  color: var(--color-tertiary);
+  letter-spacing: -0.03em;
+}
+
+/* ================================================================
+   ACTION BUTTONS
+   ================================================================ */
+.actions { display: flex; gap: var(--space-sm); flex-wrap: wrap; }
+
+.btnPrimary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 46px;
+  padding: 0 var(--space-md);
   background-color: var(--color-tertiary);
   color: var(--bg-base);
-  border: none;
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-decoration: none;
+  border-radius: var(--radius-md);
+  transition: filter var(--transition-base), transform var(--transition-base);
   box-shadow: 0 0 20px rgba(56, 189, 248, 0.25);
 }
 
-.buyBtn--primary:hover { filter: brightness(1.12); transform: translateY(-1px); }
+.btnPrimary:hover { filter: brightness(1.12); transform: translateY(-1px); }
 
-.buyBtn--ghost {
+.btnGhost {
+  display: inline-flex;
+  align-items: center;
+  height: 46px;
+  padding: 0 var(--space-md);
   background-color: transparent;
   color: var(--text-white);
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-decoration: none;
   border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  transition: background-color var(--transition-base), border-color var(--transition-base);
 }
 
-.buyBtn--ghost:hover {
+.btnGhost:hover {
   background-color: rgba(255, 255, 255, 0.05);
   border-color: rgba(255, 255, 255, 0.2);
 }
 
-.buyBtn:active { transform: scale(0.97); }
-
 /* ================================================================
    RESPONSIVE
    ================================================================ */
-@media (max-width: 1100px) {
-  .partsGrid {
-    grid-template-columns: 1fr 1fr;
+@media (max-width: 1000px) {
+  .tableHead { display: none; }
+
+  .partRow {
+    grid-template-columns: 1fr;
+    gap: var(--space-sm);
   }
+
+  .priceCell {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+  }
+
+  .priceTier { display: block; }
 }
 
 @media (max-width: 600px) {
-  .partsGrid {
-    grid-template-columns: 1fr;
-  }
-
-  .headerInner {
-    flex-direction: column;
-    align-items: flex-start;
-  }
+  .headerInner { flex-direction: column; align-items: flex-start; }
+  .canvasPlaceholder { aspect-ratio: 16 / 9; }
+  .totalBar { flex-direction: column; align-items: flex-start; }
+  .actions { flex-direction: column; }
+  .btnPrimary, .btnGhost { width: 100%; justify-content: center; }
 }

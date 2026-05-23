@@ -64,8 +64,19 @@ export function AuthProvider({ children }) {
 
   /* ── Login ────────────────────────────────────────────────────────────── */
   const login = useCallback((newToken, newUser) => {
-    setCookie(TOKEN_KEY, newToken, COOKIE_DAYS);
-    setCookie(USER_KEY, JSON.stringify(newUser), COOKIE_DAYS);
+    // Derive cookie expiry from the JWT's own `exp` claim so they always stay
+    // in sync, regardless of what the backend sets for JWT_EXPIRES_IN.
+    let expDays = COOKIE_DAYS; // fallback if decoding fails
+    try {
+      const payload = JSON.parse(atob(newToken.split('.')[1]));
+      if (payload.exp) {
+        // exp is Unix seconds; convert the remaining lifetime to days
+        expDays = (payload.exp * 1000 - Date.now()) / 864e5;
+      }
+    } catch { /* malformed token — use fallback */ }
+
+    setCookie(TOKEN_KEY, newToken, expDays);
+    setCookie(USER_KEY, JSON.stringify(newUser), expDays);
     setToken(newToken);
     setUser(newUser);
   }, []);
