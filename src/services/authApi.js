@@ -49,25 +49,53 @@ export async function apiDetect(file, token) {
 }
 
 /**
- * POST /estimate  — proxied through Vite dev server → FastAPI AI service
- * (relative path avoids CORS: browser hits localhost:5173/estimate, Vite
- *  forwards it to 127.0.0.1:8000/estimate server-side)
+ * POST /api/estimate  — goes through the Node backend (NOT directly to FastAPI).
+ * The backend calls FastAPI /estimate, saves pricing to the DB, and returns the result.
  *
- * Input:  { make, model_name, year_range, damaged_parts: string[] }
- * Output: [{ part_name, original_new, original_used, aftermarket }, ...]
+ * Input:  { history_id, make, model_name, year_range, damaged_parts: string[] }
+ * Output: { history_id, make, model, year_range, damaged_parts, pricing: { parts, totals }, estimate_status }
  */
-export async function apiEstimate({ make, model_name, year_range, damaged_parts }) {
-  const res = await fetch('/estimate', {
+export async function apiEstimate({ history_id, make, model_name, year_range, damaged_parts }, token) {
+  const res = await fetch(`${BASE}/api/estimate`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ make, model_name, year_range, damaged_parts }),
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      history_id,
+      make,
+      model:         model_name,   // backend expects "model" not "model_name"
+      year_range,
+      damaged_parts,
+    }),
   });
   const data = await res.json();
   if (!res.ok) {
-    const msg = data?.detail ?? data?.message ?? 'Price estimation failed.';
+    const msg = data?.message ?? data?.detail ?? 'Price estimation failed.';
     throw new Error(Array.isArray(msg) ? msg.map(e => e.msg).join(', ') : msg);
   }
-  return data; // Array<{ part_name, original_new, original_used, aftermarket }>
+  // Response: { history_id, make, model, year_range, damaged_parts, pricing: { parts, totals }, estimate_status }
+  return data;
+}
+
+/**
+ * PUT /api/auth/me
+ * Updates the authenticated user's username and/or password.
+ * Requires current_password when changing password.
+ */
+export async function apiUpdateMe({ username, password, current_password }, token) {
+  const res = await fetch(`${BASE}/api/auth/me`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ username, password, current_password }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message ?? 'Update failed.');
+  return data; // { user: { id, email, username, full_name } }
 }
 
 /**

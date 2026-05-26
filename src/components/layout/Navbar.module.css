@@ -222,3 +222,17 @@
 .dropdownItem:hover {
   background: rgba(239, 68, 68, 0.1);
 }
+
+.dropdownDivider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 4px 0;
+}
+
+.dropdownItemUpdate {
+  color: var(--text-muted);
+}
+.dropdownItemUpdate:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-white);
+}

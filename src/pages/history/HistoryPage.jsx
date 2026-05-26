@@ -49,6 +49,8 @@ export default function HistoryPage() {
   const [error,   setError]     = useState('');
   const [search,  setSearch]    = useState('');
   const [selected, setSelected] = useState(null); // full-screen report entry
+  const [page,     setPage]     = useState(1);
+  const PER_PAGE = 5;
 
   useEffect(() => {
     if (!token) return;
@@ -63,21 +65,33 @@ export default function HistoryPage() {
   const displayName = user?.username ?? user?.email ?? 'User';
   const initial     = displayName[0]?.toUpperCase() ?? '?';
 
+  const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+  const fmtYr = (yr) => yr?.includes('_') ? yr.replace('_', ' – ') : yr ?? '';
+  const fmtPrice = (n) => n != null ? `$${Number(n).toFixed(2)}` : '—';
+
   const filtered = history.filter(h => {
     if (!search) return true;
     const q = search.toLowerCase();
-    const dets = Array.isArray(h.detections) ? h.detections : [];
+    const parts = Array.isArray(h.damaged_parts) ? h.damaged_parts : [];
     return (
+      h.make?.toLowerCase().includes(q) ||
+      h.model?.toLowerCase().includes(q) ||
       h.status?.toLowerCase().includes(q) ||
-      dets.some(d => damageLabel(d.class).toLowerCase().includes(q)) ||
+      parts.some(p => damageLabel(p).toLowerCase().includes(q)) ||
       fmtDate(h.created_at).toLowerCase().includes(q)
     );
   });
 
   const totalDamages = history.reduce((s, h) => {
-    const dets = Array.isArray(h.detections) ? h.detections : [];
-    return s + dets.filter(d => d.class !== 'unknown-damage').length;
+    const parts = Array.isArray(h.damaged_parts) ? h.damaged_parts : [];
+    return s + parts.length;
   }, 0);
+
+  // Reset to page 1 whenever the search query changes
+  useEffect(() => { setPage(1); }, [search]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+  const paginated  = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
   /* ── Report modal ─────────────────────────────────────────────── */
   if (selected) {
@@ -194,10 +208,14 @@ export default function HistoryPage() {
 
             {/* Entry list */}
             <div className={styles.entryList}>
-              {filtered.map(entry => {
-                const dets    = Array.isArray(entry.detections) ? entry.detections : [];
-                const known   = dets.filter(d => d.class !== 'unknown-damage');
-                const unknown = dets.filter(d => d.class === 'unknown-damage');
+              {paginated.map(entry => {
+                const dets         = Array.isArray(entry.detections)    ? entry.detections    : [];
+                const knownParts   = Array.isArray(entry.damaged_parts) ? entry.damaged_parts : [];
+                const unknown      = dets.filter(d => d.class === 'unknown-damage');
+                const vehicleName  = [cap(entry.make), cap(entry.model), fmtYr(entry.year_range)].filter(Boolean).join(' ');
+                const minEstimate  = entry.pricing?.totals
+                  ? Math.min(entry.pricing.totals.original_new, entry.pricing.totals.original_used, entry.pricing.totals.aftermarket)
+                  : null;
 
                 return (
                   <div key={entry.id} className={styles.entryCard}>
@@ -218,25 +236,32 @@ export default function HistoryPage() {
                         <span className={`${styles.statusBadge} ${styles[`status--${statusColor(entry.status)}`]}`}>
                           {statusLabel(entry.status)}
                         </span>
+                        {entry.estimate_status === 'completed' && (
+                          <span className={styles.estimatedBadge}>Estimated</span>
+                        )}
                       </div>
+
+                      {vehicleName && (
+                        <p className={styles.entryVehicle}>{vehicleName}</p>
+                      )}
 
                       <div className={styles.entryMeta}>
                         <span className={styles.entryMetaItem}>
                           <IconClock /> {fmtDate(entry.created_at)} · {fmtTime(entry.created_at)}
                         </span>
                         <span className={styles.entryMetaItem}>
-                          <IconDamage /> {known.length} damage{known.length !== 1 ? 's' : ''} detected
+                          <IconDamage /> {knownParts.length} damage{knownParts.length !== 1 ? 's' : ''}
                         </span>
                       </div>
 
                       {/* Damage tags */}
-                      {known.length > 0 && (
+                      {knownParts.length > 0 && (
                         <div className={styles.entryTags}>
-                          {known.slice(0, 3).map((d, i) => (
-                            <span key={i} className={styles.entryTag}>{damageLabel(d.class)}</span>
+                          {knownParts.slice(0, 3).map((p, i) => (
+                            <span key={i} className={styles.entryTag}>{damageLabel(p)}</span>
                           ))}
-                          {known.length > 3 && (
-                            <span className={styles.entryTagMore}>+{known.length - 3}</span>
+                          {knownParts.length > 3 && (
+                            <span className={styles.entryTagMore}>+{knownParts.length - 3}</span>
                           )}
                           {unknown.length > 0 && (
                             <span className={styles.entryTagUnknown}>{unknown.length} unclassified</span>
@@ -245,8 +270,11 @@ export default function HistoryPage() {
                       )}
                     </div>
 
-                    {/* View Report button */}
+                    {/* Min estimate + View Report */}
                     <div className={styles.entryAction}>
+                      {minEstimate !== null && (
+                        <p className={styles.entryMinCost}>{fmtPrice(minEstimate)}</p>
+                      )}
                       <button
                         type="button"
                         className={styles.viewReportBtn}
@@ -261,6 +289,43 @@ export default function HistoryPage() {
               })}
             </div>
 
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className={styles.pagination}>
+                <button
+                  className={styles.pageBtn}
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  aria-label="Previous page"
+                >
+                  <IconChevronLeft />
+                </button>
+
+                <div className={styles.pageNums}>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
+                    <button
+                      key={n}
+                      className={`${styles.pageNum} ${n === page ? styles.pageNumActive : ''}`}
+                      onClick={() => setPage(n)}
+                      aria-label={`Page ${n}`}
+                      aria-current={n === page ? 'page' : undefined}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  className={styles.pageBtn}
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  aria-label="Next page"
+                >
+                  <IconChevronRight />
+                </button>
+              </div>
+            )}
+
           </section>
         </div>
       </main>
@@ -273,9 +338,15 @@ export default function HistoryPage() {
    REPORT MODAL — full-screen detail view for a single entry
    ══════════════════════════════════════════════════════════════════ */
 function ReportModal({ entry, onClose }) {
-  const dets    = Array.isArray(entry.detections) ? entry.detections : [];
-  const known   = dets.filter(d => d.class !== 'unknown-damage');
-  const unknown = dets.filter(d => d.class === 'unknown-damage');
+  const cap      = (s)  => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+  const fmtYr    = (yr) => yr?.includes('_') ? yr.replace('_', ' – ') : yr ?? '';
+  const fmtPrice = (n)  => n != null ? `$${Number(n).toFixed(2)}` : '—';
+
+  const dets        = Array.isArray(entry.detections)    ? entry.detections    : [];
+  const knownParts  = Array.isArray(entry.damaged_parts) ? entry.damaged_parts : [];
+  const unknown     = dets.filter(d => d.class === 'unknown-damage');
+  const vehicleName = [cap(entry.make), cap(entry.model), fmtYr(entry.year_range)].filter(Boolean).join(' ');
+  const hasPricing  = entry.estimate_status === 'completed' && entry.pricing?.parts?.length > 0;
 
   return (
     <div className={styles.modalOverlay}>
@@ -286,7 +357,7 @@ function ReportModal({ entry, onClose }) {
           <div className={styles.modalHeaderLeft}>
             <span className={styles.modalHeaderLabel}>DIAGNOSTIC REPORT</span>
             <p className={styles.modalHeaderDate}>
-              {fmtDate(entry.created_at)} · {fmtTime(entry.created_at)}
+              {vehicleName || 'Vehicle'} &middot; {fmtDate(entry.created_at)} · {fmtTime(entry.created_at)}
             </p>
           </div>
           <button className={styles.modalClose} onClick={onClose} aria-label="Close report">
@@ -305,33 +376,72 @@ function ReportModal({ entry, onClose }) {
             </span>
           </div>
 
-          {/* Detection summary */}
+          {/* Detected damage (classification + confidence) */}
           <div className={styles.modalSection}>
             <p className={styles.modalSectionTitle}>
-              <IconDamage /> Detected Damage ({known.length})
+              <IconDamage /> Detected Damage ({knownParts.length})
             </p>
-            {known.length === 0 ? (
+            {knownParts.length === 0 ? (
               <p className={styles.modalEmpty}>No classified damage detected.</p>
             ) : (
               <div className={styles.modalDetList}>
-                {known.map((d, i) => (
-                  <div key={i} className={styles.modalDetRow}>
-                    <span className={styles.modalDetIndex}>{String(i + 1).padStart(2, '0')}</span>
-                    <span className={styles.modalDetName}>{damageLabel(d.class)}</span>
-                    <div className={styles.modalConfTrack}>
-                      <div
-                        className={styles.modalConfFill}
-                        style={{ width: `${Math.round(d.confidence * 100)}%` }}
-                      />
+                {knownParts.map((p, i) => {
+                  // find confidence from detections if available
+                  const det  = dets.find(d => d.class === p);
+                  const conf = det ? Math.round(det.confidence * 100) : null;
+                  return (
+                    <div key={i} className={styles.modalDetRow}>
+                      <span className={styles.modalDetIndex}>{String(i + 1).padStart(2, '0')}</span>
+                      <span className={styles.modalDetName}>{damageLabel(p)}</span>
+                      {conf !== null ? (
+                        <>
+                          <div className={styles.modalConfTrack}>
+                            <div className={styles.modalConfFill} style={{ width: `${conf}%` }} />
+                          </div>
+                          <span className={styles.modalConfVal}>{conf}%</span>
+                        </>
+                      ) : (
+                        <span className={styles.modalConfVal} style={{ gridColumn: 'span 2' }}>Manual</span>
+                      )}
                     </div>
-                    <span className={styles.modalConfVal}>
-                      {Math.round(d.confidence * 100)}%
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
+
+          {/* Pricing table — only when estimate was completed */}
+          {hasPricing && (
+            <div className={styles.modalSection}>
+              <p className={styles.modalSectionTitle}>
+                <IconPrice /> Part Price Estimates
+              </p>
+              <div className={styles.modalPriceTable}>
+                <div className={styles.modalPriceHead}>
+                  <span>Part</span>
+                  <span>Orig. New</span>
+                  <span>Orig. Used</span>
+                  <span>Aftermarket</span>
+                </div>
+                {entry.pricing.parts.map((p, i) => (
+                  <div key={i} className={styles.modalPriceRow}>
+                    <span className={styles.modalPricePart}>{damageLabel(p.part_name)}</span>
+                    <span className={styles.modalPriceOrig}>{fmtPrice(p.original_new)}</span>
+                    <span className={styles.modalPriceUsed}>{fmtPrice(p.original_used)}</span>
+                    <span className={styles.modalPriceAfter}>{fmtPrice(p.aftermarket)}</span>
+                  </div>
+                ))}
+                {entry.pricing.totals && (
+                  <div className={styles.modalPriceTotals}>
+                    <span>Total</span>
+                    <span>{fmtPrice(entry.pricing.totals.original_new)}</span>
+                    <span>{fmtPrice(entry.pricing.totals.original_used)}</span>
+                    <span>{fmtPrice(entry.pricing.totals.aftermarket)}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Unknown damage */}
           {unknown.length > 0 && (
@@ -346,15 +456,17 @@ function ReportModal({ entry, onClose }) {
             </div>
           )}
 
-          {/* Note about pricing */}
-          <div className={styles.modalNote}>
-            <IconInfo />
-            <p>
-              To get price estimates for this scan, go to{' '}
-              <Link to="/manual-entry" className={styles.modalNoteLink}>Manual Entry</Link>{' '}
-              and fill in the vehicle details with the damage list above.
-            </p>
-          </div>
+          {/* Note: show only when pricing not yet done */}
+          {!hasPricing && (
+            <div className={styles.modalNote}>
+              <IconInfo />
+              <p>
+                No pricing estimate for this scan yet. Go to{' '}
+                <Link to="/manual-entry" className={styles.modalNoteLink}>Manual Entry</Link>{' '}
+                and submit the form to generate one.
+              </p>
+            </div>
+          )}
 
         </div>
       </div>
@@ -431,6 +543,31 @@ function IconInfo() {
       <circle cx="12" cy="12" r="10"/>
       <line x1="12" y1="16" x2="12" y2="12"/>
       <line x1="12" y1="8" x2="12.01" y2="8"/>
+    </svg>
+  );
+}
+function IconPrice() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <line x1="12" y1="1" x2="12" y2="23"/>
+      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+    </svg>
+  );
+}
+function IconChevronLeft() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polyline points="15 18 9 12 15 6"/>
+    </svg>
+  );
+}
+function IconChevronRight() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polyline points="9 18 15 12 9 6"/>
     </svg>
   );
 }

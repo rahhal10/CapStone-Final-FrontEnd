@@ -2,6 +2,7 @@ import { useState, useEffect }  from 'react';
 import { Link, useLocation }     from 'react-router-dom';
 import Navbar                    from '../../components/layout/Navbar';
 import Footer                    from '../../components/layout/Footer';
+import { useAuth }               from '../../context/AuthContext';
 import { apiEstimate }           from '../../services/authApi';
 import styles                    from './ResultsPage.module.css';
 
@@ -31,8 +32,9 @@ const damageLabel = (cls) =>
 
 /* ── Component ────────────────────────────────────────────────── */
 export default function ResultsPage() {
-  const location = useLocation();
-  const state    = location.state || {};
+  const location    = useLocation();
+  const state       = location.state || {};
+  const { token }   = useAuth();
 
   const {
     make          = 'Unknown',
@@ -40,11 +42,13 @@ export default function ResultsPage() {
     year_range    = '',
     damaged_parts = [],
     image_url     = null,
+    history_id    = null,
     detections    = [],          // [{ class, confidence, bbox:{x1,y1,x2,y2} }]
   } = state;
 
   /* ── Price estimation state ─────────────────────────────────── */
   const [parts,   setParts]   = useState([]);
+  const [totals,  setTotals]  = useState(null);   // { original_new, original_used, aftermarket }
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState('');
 
@@ -55,17 +59,25 @@ export default function ResultsPage() {
     if (!damaged_parts.length) return;
     setLoading(true);
     setError('');
-    apiEstimate({ make, model_name, year_range, damaged_parts })
-      .then(setParts)
+    apiEstimate(
+      { history_id, make, model_name, year_range, damaged_parts },
+      token
+    )
+      .then(res => {
+        // New backend response: { pricing: { parts, totals }, make, model, ... }
+        const pricing = res?.pricing;
+        setParts(pricing?.parts  ?? []);
+        setTotals(pricing?.totals ?? null);
+      })
       .catch(err => setError(err.message))
       .finally(() => setLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* ── Totals ─────────────────────────────────────────────────── */
-  const totalLowest = parts.reduce((sum, p) => {
-    return sum + Math.min(p.original_new, p.original_used, p.aftermarket);
-  }, 0);
+  /* ── Totals (use backend pre-calculated value; fallback to manual) ──── */
+  const totalLowest = totals
+    ? Math.min(totals.original_new, totals.original_used, totals.aftermarket)
+    : parts.reduce((sum, p) => sum + Math.min(p.original_new, p.original_used, p.aftermarket), 0);
 
   const vehicleLabel = [cap(make), cap(model_name), fmtYr(year_range)]
     .filter(Boolean).join(' ');

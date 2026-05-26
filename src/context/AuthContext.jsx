@@ -81,8 +81,14 @@ export function AuthProvider({ children }) {
     setUser(newUser);
   }, []);
 
+  /* ── Update user (profile changes, token unchanged) ──────────────────── */
+  const updateUser = useCallback((updatedUser) => {
+    setCookie(USER_KEY, JSON.stringify(updatedUser), COOKIE_DAYS);
+    setUser(updatedUser);
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, token, login, logout, updateUser, isAuthenticated: !!user }}>
       {children}
     </AuthContext.Provider>
   );
